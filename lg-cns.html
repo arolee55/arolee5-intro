@@ -144,12 +144,70 @@
       flex-wrap: wrap;
     }
 
-    .forecast-field {
+    .forecast-field,
+    .forecast-mode {
       display: grid;
       gap: 5px;
       color: #343b49;
       font-size: 0.92rem;
       font-weight: 700;
+    }
+
+    .forecast-field[hidden] {
+      display: none;
+    }
+
+    .forecast-mode {
+      min-inline-size: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .forecast-mode legend {
+      padding: 0;
+    }
+
+    .forecast-mode-options {
+      display: inline-flex;
+      min-height: 42px;
+      padding: 3px;
+      background: #f8fafd;
+      border: 1px solid #cbd3df;
+      border-radius: 8px;
+    }
+
+    .forecast-mode-option {
+      position: relative;
+      display: inline-flex;
+      cursor: pointer;
+    }
+
+    .forecast-mode-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .forecast-mode-option span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      color: #5f6878;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .forecast-mode-option input:checked + span {
+      color: #ffffff;
+      background: #a50034;
+    }
+
+    .forecast-mode-option input:focus-visible + span {
+      outline: 3px solid rgba(165, 0, 52, 0.28);
+      outline-offset: 2px;
     }
 
     .forecast-select {
@@ -480,6 +538,7 @@
         width: 100%;
       }
 
+      .forecast-mode,
       .forecast-field,
       .forecast-button {
         flex: 1 1 180px;
@@ -535,20 +594,33 @@
       <section class="forecast-section" aria-labelledby="forecast-title">
         <div class="forecast-header">
           <div>
-            <h2 class="forecast-title" id="forecast-title">전국 시군구 1주일 일기예보</h2>
+            <h2 class="forecast-title" id="forecast-title">전국 1주일 일기예보</h2>
             <p class="forecast-copy">
-              시도와 시군구를 선택하면 외부 지오코딩 API로 좌표를 찾고, 날씨 API로 최신 7일 예보를 조회합니다.
+              시도 단위 또는 시군구 단위로 좌표를 찾고, 날씨 API로 최신 7일 예보를 조회합니다.
             </p>
           </div>
 
           <div class="forecast-controls">
+            <fieldset class="forecast-mode" aria-label="일기예보 조회 범위">
+              <legend>조회 범위</legend>
+              <div class="forecast-mode-options">
+                <label class="forecast-mode-option">
+                  <input type="radio" name="forecast-scope" value="province" checked>
+                  <span>시도</span>
+                </label>
+                <label class="forecast-mode-option">
+                  <input type="radio" name="forecast-scope" value="district">
+                  <span>시군구</span>
+                </label>
+              </div>
+            </fieldset>
             <label class="forecast-field" for="forecast-province">
               시도
               <select class="forecast-select" id="forecast-province"></select>
             </label>
-            <label class="forecast-field" for="forecast-district">
+            <label class="forecast-field" id="forecast-district-field" for="forecast-district" hidden>
               시군구
-              <select class="forecast-select" id="forecast-district"></select>
+              <select class="forecast-select" id="forecast-district" disabled></select>
             </label>
             <button class="forecast-button" id="forecast-refresh" type="button">예보 조회</button>
           </div>
@@ -662,7 +734,9 @@
       99: ["강한 우박 동반 뇌우", "⛈️"]
     };
 
+    const scopeInputs = document.querySelectorAll("input[name='forecast-scope']");
     const provinceSelect = document.querySelector("#forecast-province");
+    const districtField = document.querySelector("#forecast-district-field");
     const districtSelect = document.querySelector("#forecast-district");
     const refreshButton = document.querySelector("#forecast-refresh");
     const statusText = document.querySelector("#forecast-status");
@@ -682,12 +756,25 @@
       )).join("");
     }
 
+    function getForecastScope() {
+      return document.querySelector("input[name='forecast-scope']:checked").value;
+    }
+
+    function updateDistrictControl() {
+      const shouldUseDistrict = getForecastScope() === "district";
+      districtField.hidden = !shouldUseDistrict;
+      districtSelect.disabled = !shouldUseDistrict;
+    }
+
     function getSelectedLocationName() {
       const region = regions[Number(provinceSelect.value)];
+      const shouldUseDistrict = getForecastScope() === "district";
+      const district = shouldUseDistrict ? districtSelect.value : "";
+
       return {
         province: region.name,
-        district: districtSelect.value,
-        label: `${region.name} ${districtSelect.value}`
+        district,
+        label: district ? `${region.name} ${district}` : region.name
       };
     }
 
@@ -704,7 +791,9 @@
     }
 
     function buildGeocodeUrl(location) {
-      const query = `${location.district} ${location.province} 대한민국`;
+      const query = location.district
+        ? `${location.district} ${location.province} 대한민국`
+        : `${location.province} 대한민국`;
       const params = new URLSearchParams({
         format: "jsonv2",
         q: query,
@@ -803,11 +892,18 @@
       populateDistrictOptions();
       loadForecast();
     });
+    scopeInputs.forEach((input) => {
+      input.addEventListener("change", () => {
+        updateDistrictControl();
+        loadForecast();
+      });
+    });
     districtSelect.addEventListener("change", loadForecast);
     refreshButton.addEventListener("click", loadForecast);
 
     populateProvinceOptions();
     populateDistrictOptions();
+    updateDistrictControl();
     loadForecast();
 
     (() => {
