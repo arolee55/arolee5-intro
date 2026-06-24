@@ -17,6 +17,11 @@
       line-height: 1.6;
     }
 
+    button,
+    select {
+      font: inherit;
+    }
+
     .page {
       min-height: 100vh;
       display: flex;
@@ -101,6 +106,132 @@
       margin-top: 8px;
     }
 
+    .forecast-section {
+      margin-top: 28px;
+      padding: 28px;
+      background: #ffffff;
+      border: 1px solid #e3e7ef;
+      border-radius: 8px;
+      box-shadow: 0 14px 32px rgba(31, 36, 48, 0.08);
+    }
+
+    .forecast-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+
+    .forecast-title {
+      margin: 0;
+      color: #1f2430;
+      font-size: 1.55rem;
+      letter-spacing: 0;
+    }
+
+    .forecast-copy {
+      max-width: 620px;
+      margin: 8px 0 0;
+      color: #5f6878;
+    }
+
+    .forecast-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .forecast-select {
+      min-width: 160px;
+      min-height: 42px;
+      padding: 0 40px 0 14px;
+      color: #1f2430;
+      background: #f8fafd;
+      border: 1px solid #cbd3df;
+      border-radius: 8px;
+    }
+
+    .forecast-button {
+      min-height: 42px;
+      padding: 0 16px;
+      color: #ffffff;
+      background: #a50034;
+      border: 0;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .forecast-button:hover,
+    .forecast-button:focus-visible {
+      background: #87002b;
+    }
+
+    .forecast-button:disabled {
+      cursor: wait;
+      opacity: 0.72;
+    }
+
+    .forecast-status {
+      min-height: 24px;
+      margin: 0 0 16px;
+      color: #5f6878;
+      font-size: 0.95rem;
+    }
+
+    .forecast-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(116px, 1fr));
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .forecast-day {
+      min-width: 116px;
+      padding: 16px;
+      background: #f8fafd;
+      border: 1px solid #e3e7ef;
+      border-radius: 8px;
+    }
+
+    .forecast-date {
+      margin: 0;
+      color: #5f6878;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .forecast-icon {
+      margin: 10px 0 8px;
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .forecast-summary {
+      min-height: 45px;
+      margin: 0 0 12px;
+      color: #1f2430;
+      font-weight: 700;
+    }
+
+    .forecast-temp {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #343b49;
+      font-size: 0.95rem;
+    }
+
+    .forecast-rain {
+      margin: 8px 0 0;
+      color: #5f6878;
+      font-size: 0.92rem;
+    }
+
     .footer {
       padding: 24px;
       background: #ffffff;
@@ -150,6 +281,19 @@
       .card {
         min-height: auto;
       }
+
+      .forecast-section {
+        padding: 22px;
+      }
+
+      .forecast-controls {
+        width: 100%;
+      }
+
+      .forecast-select,
+      .forecast-button {
+        flex: 1 1 160px;
+      }
     }
   </style>
 </head>
@@ -193,16 +337,150 @@
           </p>
         </article>
       </div>
+
+      <section class="forecast-section" aria-labelledby="forecast-title">
+        <div class="forecast-header">
+          <div>
+            <h2 class="forecast-title" id="forecast-title">서울시 1주일 일기예보</h2>
+            <p class="forecast-copy">
+              지역을 선택하면 외부 날씨 API를 호출해 최신 7일 예보를 조회합니다.
+            </p>
+          </div>
+
+          <div class="forecast-controls">
+            <label for="forecast-location">지역</label>
+            <select class="forecast-select" id="forecast-location">
+              <option value="seoul" selected>서울시</option>
+            </select>
+            <button class="forecast-button" id="forecast-refresh" type="button">예보 조회</button>
+          </div>
+        </div>
+
+        <p class="forecast-status" id="forecast-status" aria-live="polite">예보를 불러오는 중입니다.</p>
+        <div class="forecast-grid" id="forecast-grid" aria-label="7일 일기예보"></div>
+      </section>
     </section>
 
     <footer class="footer">
       <div class="footer-inner">
-        <span>참고: LG CNS 공식 글로벌 사이트</span>
+        <span>참고: LG CNS 공식 글로벌 사이트 · 날씨: Open-Meteo Forecast API</span>
         <a class="official-link" href="https://www.lgcns.com/en" target="_blank" rel="noopener noreferrer">
           공식 사이트 보기
         </a>
       </div>
     </footer>
   </main>
+
+  <script>
+    const locations = {
+      seoul: {
+        name: "서울시",
+        latitude: 37.5665,
+        longitude: 126.9780
+      }
+    };
+
+    const weatherCodes = {
+      0: ["맑음", "☀️"],
+      1: ["대체로 맑음", "🌤️"],
+      2: ["부분적으로 흐림", "⛅"],
+      3: ["흐림", "☁️"],
+      45: ["안개", "🌫️"],
+      48: ["서리 안개", "🌫️"],
+      51: ["약한 이슬비", "🌦️"],
+      53: ["이슬비", "🌦️"],
+      55: ["강한 이슬비", "🌧️"],
+      61: ["약한 비", "🌦️"],
+      63: ["비", "🌧️"],
+      65: ["강한 비", "🌧️"],
+      71: ["약한 눈", "🌨️"],
+      73: ["눈", "🌨️"],
+      75: ["강한 눈", "❄️"],
+      80: ["약한 소나기", "🌦️"],
+      81: ["소나기", "🌧️"],
+      82: ["강한 소나기", "⛈️"],
+      95: ["뇌우", "⛈️"],
+      96: ["우박 동반 뇌우", "⛈️"],
+      99: ["강한 우박 동반 뇌우", "⛈️"]
+    };
+
+    const locationSelect = document.querySelector("#forecast-location");
+    const refreshButton = document.querySelector("#forecast-refresh");
+    const statusText = document.querySelector("#forecast-status");
+    const forecastGrid = document.querySelector("#forecast-grid");
+
+    function formatDate(dateText) {
+      return new Intl.DateTimeFormat("ko-KR", {
+        month: "short",
+        day: "numeric",
+        weekday: "short"
+      }).format(new Date(`${dateText}T00:00:00+09:00`));
+    }
+
+    function getWeatherLabel(code) {
+      return weatherCodes[code] || ["날씨 정보", "🌡️"];
+    }
+
+    function buildForecastUrl(location) {
+      const params = new URLSearchParams({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+        timezone: "Asia/Seoul",
+        forecast_days: "7"
+      });
+
+      return `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+    }
+
+    function renderForecast(daily) {
+      forecastGrid.innerHTML = daily.time.map((dateText, index) => {
+        const [summary, icon] = getWeatherLabel(daily.weather_code[index]);
+        const maxTemp = Math.round(daily.temperature_2m_max[index]);
+        const minTemp = Math.round(daily.temperature_2m_min[index]);
+        const rain = daily.precipitation_probability_max[index] ?? 0;
+
+        return `
+          <article class="forecast-day">
+            <p class="forecast-date">${formatDate(dateText)}</p>
+            <div class="forecast-icon" aria-hidden="true">${icon}</div>
+            <p class="forecast-summary">${summary}</p>
+            <div class="forecast-temp">
+              <span>최고 ${maxTemp}°</span>
+              <span>최저 ${minTemp}°</span>
+            </div>
+            <p class="forecast-rain">강수 확률 ${rain}%</p>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function loadForecast() {
+      const location = locations[locationSelect.value];
+      refreshButton.disabled = true;
+      statusText.textContent = `${location.name} 예보를 실시간으로 조회하는 중입니다.`;
+
+      try {
+        const response = await fetch(buildForecastUrl(location));
+
+        if (!response.ok) {
+          throw new Error("날씨 API 응답이 올바르지 않습니다.");
+        }
+
+        const data = await response.json();
+        renderForecast(data.daily);
+        statusText.textContent = `${location.name} 기준 최신 7일 예보입니다.`;
+      } catch (error) {
+        forecastGrid.innerHTML = "";
+        statusText.textContent = "일기예보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      } finally {
+        refreshButton.disabled = false;
+      }
+    }
+
+    refreshButton.addEventListener("click", loadForecast);
+    locationSelect.addEventListener("change", loadForecast);
+    loadForecast();
+  </script>
 </body>
 </html>
